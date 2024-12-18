@@ -1,7 +1,8 @@
 package main
 import (
-	"github.com/madhu1992blue/go-servers-demo/internal/database"
 	"net/http"
+	"github.com/madhu1992blue/go-servers-demo/internal/database"
+	"github.com/madhu1992blue/go-servers-demo/internal/auth"
 	"github.com/google/uuid"
 	"encoding/json"
 	"strings"
@@ -59,9 +60,19 @@ func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
+	tokenString, err := auth.GetBearerToken(&r.Header)
+	if err != nil {
+		log.Printf("Error : %v", err)
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+	userID, err := auth.ValidateJWT(tokenString, cfg.jwtSecret) 
+	if err!=nil {
+		log.Printf("Error : %v", err)
+		respondWithError(w, 401, "Unauthorized")
+	}
 	type parameters struct {
 		Body string `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
 	}
 	type errorRes struct {
 		Error string `json:"error"`
@@ -88,7 +99,7 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 	cleanedBody := strings.Join(chirpParts, " ")
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body: cleanedBody,
-		UserID: params.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		log.Println("Error: %v", err)
