@@ -82,10 +82,6 @@ func (cfg *apiConfig) reset(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 500, "Something went wrong")
 		return
 	}
-	if err := cfg.db.DeleteChirps(r.Context()); err != nil {
-		respondWithError(w, 500, "Something went wrong")
-		return
-	}
 	w.WriteHeader(200)
 	w.Write([]byte(""))
 }
