@@ -8,13 +8,15 @@ import (
 	"strings"
 	"os"
 	"database/sql"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/madhu1992blue/go-servers-demo/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	dbQueries *database.Queries
+	db *database.Queries
+	platform string
 }
 
 var profaneWords []string = []string{"kerfuffle", "sharbert", "fornax"}
@@ -72,7 +74,13 @@ func (cfg *apiConfig) metrics(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) reset(w http.ResponseWriter, r *http.Request) {
 	cfg.fileserverHits.Store(0)
+	if cfg.platform != "dev" {
+		respondWithError(w, 403, "Forbidden")
+		return
+	}
+	cfg.db.DeleteUsers(r.Context());
 	w.WriteHeader(200)
+	w.Write([]byte(""))
 }
 func healthz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -80,17 +88,21 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 func main() {
+	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbURL)
 	mux := &http.ServeMux{}
 	dbQueries := database.New(db)
 	cfg := &apiConfig{
-		dbQueries: dbQueries,
+		db: dbQueries,
+		platform: platform,
 	}
 	fileServerHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
 	mux.Handle("/app/", cfg.middlewareMetricsInc(fileServerHandler))
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("POST /api/validate_chirp", validateChirp)
+	mux.HandleFunc("POST /api/users", cfg.createUser)
 	mux.HandleFunc("GET /admin/metrics", cfg.metrics)
 	mux.HandleFunc("POST /admin/reset", cfg.reset)
 	server := http.Server{
