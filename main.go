@@ -6,10 +6,15 @@ import (
 	"encoding/json"
 	"sync/atomic"
 	"strings"
+	"os"
+	"database/sql"
+	_ "github.com/lib/pq"
+	"github.com/madhu1992blue/go-servers-demo/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	dbQueries *database.Queries
 }
 
 var profaneWords []string = []string{"kerfuffle", "sharbert", "fornax"}
@@ -75,8 +80,13 @@ func healthz(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 func main() {
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
 	mux := &http.ServeMux{}
-	cfg := &apiConfig{}
+	dbQueries := database.New(db)
+	cfg := &apiConfig{
+		dbQueries: dbQueries,
+	}
 	fileServerHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
 	mux.Handle("/app/", cfg.middlewareMetricsInc(fileServerHandler))
 	mux.HandleFunc("GET /api/healthz", healthz)
@@ -87,7 +97,7 @@ func main() {
 		Handler: mux,
 		Addr: ":8080",
 	}
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		fmt.Println("error occured: %v", err)
 	}
