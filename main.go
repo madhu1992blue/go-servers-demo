@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"encoding/json"
 	"sync/atomic"
+	"strings"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
 }
 
+var profaneWords []string = []string{"kerfuffle", "sharbert", "fornax"}
 func validateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
@@ -18,27 +20,30 @@ func validateChirp(w http.ResponseWriter, r *http.Request) {
 	type errorRes struct {
 		Error string `json:"error"`
 	}
-	type validRes struct {
-		Valid bool `json:"valid"`
+	type returnVal struct {
+		CleanedBody string `json:"cleaned_body"`
 	}
 	var params parameters
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&params); err != nil {
-		res, _ := json.Marshal(errorRes{Error: "Something went wrong"})
-		w.WriteHeader(400)
-		w.Write(res)
+		respondWithError(w, 400, "Something went wrong")
 		return
 	}
 	if len(params.Body) > 140 {
-		res, _ := json.Marshal(errorRes{Error: "Chirp is too long"})
-		w.WriteHeader(400)
-		w.Write(res)
+		respondWithError(w, 400, "Chirp is too long")
 		return
 	}
-	res, _ := json.Marshal(validRes{Valid: true })
-	w.WriteHeader(200)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
+	chirpParts := strings.Fields(params.Body)
+	for i, part := range chirpParts {
+		for _, pw := range profaneWords {
+			if strings.ToLower(part) == strings.ToLower(pw) {
+				chirpParts[i] = "****"
+				continue
+			}
+		}
+	}
+	cleanedBody := strings.Join(chirpParts, " ")
+	respondWithJSON(w, 200, returnVal{CleanedBody: cleanedBody})
 }
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
