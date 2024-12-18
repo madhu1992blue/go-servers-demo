@@ -17,6 +17,24 @@ type Chirp struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
+func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
+	chirpsData, err := cfg.db.GetChirps(r.Context());
+	if err != nil {
+		log.Println("Error: %v", err)
+		respondWithError(w, 500, "Something went wrong")
+		return
+	}
+	chirps := make([]Chirp, len(chirpsData))
+	for i, c := range chirpsData {
+		chirps[i].Body = c.Body
+		chirps[i].CreatedAt = c.CreatedAt
+		chirps[i].UpdatedAt = c.UpdatedAt
+		chirps[i].ID = c.ID
+		chirps[i].UserID = c.UserID
+	}
+	respondWithJSON(w, 200, chirps)
+}
+
 func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
