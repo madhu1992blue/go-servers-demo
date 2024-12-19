@@ -7,6 +7,7 @@ import (
 	"github.com/madhu1992blue/go-servers-demo/internal/database"
 	"net/http"
 	"time"
+	"log"
 )
 
 type User struct {
@@ -15,20 +16,80 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
 }
+type UserLoggedIn struct {
+                ID        uuid.UUID `json:"id"`
+                CreatedAt time.Time `json:"created_at"`
+                UpdatedAt time.Time `json:"updated_at"`
+                Email     string    `json:"email"`
+                Token     string    `json:"token"`
+                RefreshToken string `json:"refresh_token"`
+}
 
+func (cfg *apiConfig) updateUser(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+                Email            string `json:"email"`
+                Password         string `json:"password"`
+        }
+	params := &parameters{}
+	decoder := json.NewDecoder(r.Body)
+        if err := decoder.Decode(params); err != nil {
+                respondWithError(w, 400, "Bad Request")
+                return
+        }
+	accessTokenString, err := auth.GetBearerToken(&r.Header)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+	userID, err := auth.ValidateJWT(accessTokenString, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("JWT Validation ERROR: %v -- %s", err, userID)
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+	_, err = cfg.db.GetUserByID(r.Context(), userID)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if  err != nil {
+		log.Printf("ERROR: %v", err)
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+	err = cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		Email: params.Email,
+		HashedPassword: hashedPassword, 
+	})
+	if err != nil {
+		log.Printf("ERROR: %v", err)
+		respondWithError(w, 501, "Something went wrong")
+		return
+	}
+	user, err := cfg.db.GetUserByID(r.Context(), userID)
+	if err != nil {
+		respondWithError(w, 501, "Something went wrong")
+		return
+	}
+	result := struct{
+                	Email string `json:"email"`
+                	CreatedAt time.Time `json:"created_at"`
+                	UpdatedAt time.Time `json:"updated_at"`
+                	ID      uuid.UUID   `json:"id"`
+        	}{
+                Email:     params.Email,
+                CreatedAt: user.CreatedAt,
+                UpdatedAt: user.UpdatedAt,
+                ID:        user.ID,
+        }
+	respondWithJSON(w, 200, result)
+
+}
 func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Email            string `json:"email"`
 		Password         string `json:"password"`
-	}
-
-	type UserLoggedIn struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-		Token     string    `json:"token"`
-		RefreshToken string `json:"refresh_token"`
 	}
 	params := &parameters{}
 	decoder := json.NewDecoder(r.Body)
@@ -54,7 +115,7 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
 		Token: refreshToken,
 		UserID: user.ID,
-		ExpiresAt: time.Now().Add(60 * 60 * 24 * time.Second),
+		ExpiresAt: time.Now().Add(60 * 60 * 24 * time.Second * 60),
 	})
 	if err != nil {
 		respondWithError(w, 500, "Something went wrong")
