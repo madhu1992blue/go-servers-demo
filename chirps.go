@@ -44,6 +44,10 @@ func (cfg *apiConfig) getChirp(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
 	authorIdQuery := r.URL.Query().Get("author_id")
+	sortQuery := strings.ToLower(r.URL.Query().Get("sort"))
+	if sortQuery == "" {
+		sortQuery = "asc"
+	}
 	var chirpsData []database.Chirp
 	var err error
 	if authorIdQuery !="" {
@@ -52,9 +56,17 @@ func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
 			respondWithError(w, 500, "Something went wrong")
 			return
 		}
-		chirpsData, err = cfg.db.GetChirpsByAuthor(r.Context(), authorId)
+		if sortQuery == "asc" {
+			chirpsData, err = cfg.db.GetChirpsByAuthor(r.Context(), authorId)
+		}  else {
+			chirpsData, err = cfg.db.GetChirpsByAuthorDesc(r.Context(), authorId)
+		}
 	} else {
-		chirpsData, err = cfg.db.GetChirps(r.Context())
+		if sortQuery == "asc" {
+			chirpsData, err = cfg.db.GetChirps(r.Context())
+		} else {
+			chirpsData, err = cfg.db.GetChirpsDesc(r.Context())
+		}
 	}
 	if err != nil {
 		log.Println("Error: %v", err)
