@@ -15,6 +15,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	IsChirpyRed bool	`json:"is_chirpy_red"`
 }
 type UserLoggedIn struct {
 	ID           uuid.UUID `json:"id"`
@@ -23,8 +24,38 @@ type UserLoggedIn struct {
 	Email        string    `json:"email"`
 	Token        string    `json:"token"`
 	RefreshToken string    `json:"refresh_token"`
+	IsChirpyRed  bool	`json:"is_chirpy_red"`
 }
+func (cfg *apiConfig) upgradeUser(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Event    string `json:"event"`
+		Data struct {
+			UserID uuid.UUID `json:"user_id"`
+		}
+	}
+	params := &parameters{}
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(params); err != nil {
+		respondWithError(w, 400, "Bad Request")
+		return
+	}
+	if params.Event != "user.upgraded" {
+		respondWithJSON(w, 204, nil)
+		return
+	}
+	user, err := cfg.db.GetUserByID(r.Context(), params.Data.UserID)
+	if err != nil {
+		respondWithError(w, 404, "record not found")
+		return
+	}
+	err = cfg.db.UpgradeUser(r.Context(), user.ID)
+	if err != nil {
+		respondWithError(w, 500, "Somethign went wrong")
+		return
+	}
+	respondWithJSON(w, 204, nil)
 
+}
 func (cfg *apiConfig) updateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Email    string `json:"email"`
@@ -77,11 +108,13 @@ func (cfg *apiConfig) updateUser(w http.ResponseWriter, r *http.Request) {
 		CreatedAt time.Time `json:"created_at"`
 		UpdatedAt time.Time `json:"updated_at"`
 		ID        uuid.UUID `json:"id"`
+		IsChirpyRed bool `json:"is_chirpy_red"`
 	}{
 		Email:     params.Email,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		ID:        user.ID,
+		IsChirpyRed: user.IsChirpyRed,
 	}
 	respondWithJSON(w, 200, result)
 
@@ -127,6 +160,7 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 		ID:           user.ID,
 		Token:        tokenString,
 		RefreshToken: refreshToken,
+		IsChirpyRed:  user.IsChirpyRed,
 	})
 }
 
@@ -156,6 +190,7 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: dbUser.CreatedAt,
 		UpdatedAt: dbUser.UpdatedAt,
 		Email:     dbUser.Email,
+		IsChirpyRed: dbUser.IsChirpyRed,
 	}
 	respondWithJSON(w, 201, newUser)
 }

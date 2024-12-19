@@ -118,6 +118,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", cfg.deleteChirp)
 	mux.HandleFunc("GET /api/chirps", cfg.getChirps)
 	mux.HandleFunc("POST /api/chirps", cfg.createChirp)
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.upgradeUser)
 	mux.HandleFunc("GET /admin/metrics", cfg.metrics)
 	mux.HandleFunc("POST /admin/reset", cfg.reset)
 	server := http.Server{
