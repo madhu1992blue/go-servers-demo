@@ -29,7 +29,7 @@ func (cfg *apiConfig) getChirp(w http.ResponseWriter, r *http.Request) {
 	chirpData, err := cfg.db.GetChirp(r.Context(), chirpID)
 	if err != nil {
 		log.Println("Error: %v", err)
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, 404, "Record not found")
 		return
 	}
 	chirp := Chirp{
@@ -115,4 +115,42 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: chirp.UpdatedAt,
 		UserID:    chirp.UserID,
 	})
+}
+
+func (cfg *apiConfig) deleteChirp(w http.ResponseWriter, r *http.Request) {
+	accessTokenString, err := auth.GetBearerToken(&r.Header)
+        if err != nil {
+                respondWithError(w, 401, "Unauthorized")
+                return
+        }
+        userID, err := auth.ValidateJWT(accessTokenString, cfg.jwtSecret)
+        if err != nil {
+                log.Printf("JWT Validation ERROR: %v -- %s", err, userID)
+                respondWithError(w, 401, "Unauthorized")
+                return
+        }
+	chirpId, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, 400, "Bad Request")
+		return
+	}
+	chirpRecord, err := cfg.db.GetChirp(r.Context(), chirpId)
+	if err != nil {
+		respondWithError(w, 400, "Bad Request")
+		return
+	}
+	if chirpRecord.UserID != userID {
+		respondWithError(w, 403, "Unauthorized")
+		return
+	}
+	err = cfg.db.DeleteChirpByIDAndUser(r.Context(),database.DeleteChirpByIDAndUserParams{
+		ID: chirpId,
+		UserID: userID,
+	})
+	if err != nil {
+		respondWithError(w, 403, "Unauthorized")
+		return
+	}
+	respondWithJSON(w, 204, nil)
+
 }

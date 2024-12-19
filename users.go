@@ -5,9 +5,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/madhu1992blue/go-servers-demo/internal/auth"
 	"github.com/madhu1992blue/go-servers-demo/internal/database"
+	"log"
 	"net/http"
 	"time"
-	"log"
 )
 
 type User struct {
@@ -17,25 +17,25 @@ type User struct {
 	Email     string    `json:"email"`
 }
 type UserLoggedIn struct {
-                ID        uuid.UUID `json:"id"`
-                CreatedAt time.Time `json:"created_at"`
-                UpdatedAt time.Time `json:"updated_at"`
-                Email     string    `json:"email"`
-                Token     string    `json:"token"`
-                RefreshToken string `json:"refresh_token"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) updateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-                Email            string `json:"email"`
-                Password         string `json:"password"`
-        }
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 	params := &parameters{}
 	decoder := json.NewDecoder(r.Body)
-        if err := decoder.Decode(params); err != nil {
-                respondWithError(w, 400, "Bad Request")
-                return
-        }
+	if err := decoder.Decode(params); err != nil {
+		respondWithError(w, 400, "Bad Request")
+		return
+	}
 	accessTokenString, err := auth.GetBearerToken(&r.Header)
 	if err != nil {
 		respondWithError(w, 401, "Unauthorized")
@@ -53,14 +53,14 @@ func (cfg *apiConfig) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hashedPassword, err := auth.HashPassword(params.Password)
-	if  err != nil {
+	if err != nil {
 		log.Printf("ERROR: %v", err)
 		respondWithError(w, 401, "Unauthorized")
 		return
 	}
 	err = cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
-		Email: params.Email,
-		HashedPassword: hashedPassword, 
+		Email:          params.Email,
+		HashedPassword: hashedPassword,
 	})
 	if err != nil {
 		log.Printf("ERROR: %v", err)
@@ -72,24 +72,24 @@ func (cfg *apiConfig) updateUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 501, "Something went wrong")
 		return
 	}
-	result := struct{
-                	Email string `json:"email"`
-                	CreatedAt time.Time `json:"created_at"`
-                	UpdatedAt time.Time `json:"updated_at"`
-                	ID      uuid.UUID   `json:"id"`
-        	}{
-                Email:     params.Email,
-                CreatedAt: user.CreatedAt,
-                UpdatedAt: user.UpdatedAt,
-                ID:        user.ID,
-        }
+	result := struct {
+		Email     string    `json:"email"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		ID        uuid.UUID `json:"id"`
+	}{
+		Email:     params.Email,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		ID:        user.ID,
+	}
 	respondWithJSON(w, 200, result)
 
 }
 func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	params := &parameters{}
 	decoder := json.NewDecoder(r.Body)
@@ -107,25 +107,25 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 401, "Incorrect email or password")
 		return
 	}
-	tokenString, err := auth.MakeJWT(user.ID, cfg.jwtSecret, 60 * 60 * time.Second)
+	tokenString, err := auth.MakeJWT(user.ID, cfg.jwtSecret, 60*60*time.Second)
 	if err != nil {
 		respondWithError(w, 500, "Something went wrong")
 	}
 	refreshToken, err := auth.MakeRefreshToken()
 	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
-		Token: refreshToken,
-		UserID: user.ID,
+		Token:     refreshToken,
+		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(60 * 60 * 24 * time.Second * 60),
 	})
 	if err != nil {
 		respondWithError(w, 500, "Something went wrong")
 	}
 	respondWithJSON(w, 200, UserLoggedIn{
-		Email:     user.Email,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		ID:        user.ID,
-		Token:     tokenString,
+		Email:        user.Email,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		ID:           user.ID,
+		Token:        tokenString,
 		RefreshToken: refreshToken,
 	})
 }
