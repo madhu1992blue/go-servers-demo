@@ -27,6 +27,15 @@ type UserLoggedIn struct {
 	IsChirpyRed  bool	`json:"is_chirpy_red"`
 }
 func (cfg *apiConfig) upgradeUser(w http.ResponseWriter, r *http.Request) {
+	apiKey, err := auth.GetAPIKey(&r.Header)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+	if apiKey != cfg.polkaKey {
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
 	type parameters struct {
 		Event    string `json:"event"`
 		Data struct {

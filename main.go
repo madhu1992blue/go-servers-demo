@@ -18,6 +18,7 @@ type apiConfig struct {
 	db             *database.Queries
 	platform       string
 	jwtSecret      string
+	polkaKey	string
 }
 
 var profaneWords []string = []string{"kerfuffle", "sharbert", "fornax"}
@@ -97,6 +98,7 @@ func main() {
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
 	jwtSecret := os.Getenv("JWT_SECRET")
+	polkaKey := os.Getenv("POLKA_KEY")
 	db, err := sql.Open("postgres", dbURL)
 	mux := &http.ServeMux{}
 	dbQueries := database.New(db)
@@ -104,6 +106,7 @@ func main() {
 		db:        dbQueries,
 		platform:  platform,
 		jwtSecret: jwtSecret,
+		polkaKey: polkaKey,
 	}
 	fileServerHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
 	mux.Handle("/app/", cfg.middlewareMetricsInc(fileServerHandler))
