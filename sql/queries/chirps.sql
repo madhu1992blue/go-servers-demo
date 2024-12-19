@@ -14,3 +14,5 @@ SELECT * FROM chirps WHERE id=$1;
 -- name: DeleteChirpByIDAndUser :exec
 DELETE FROM chirps WHERE id=$1 AND user_id=$2;
 
+-- name: GetChirpsByAuthor :many
+SELECT * FROM chirps WHERE user_id=$1 ORDER BY created_at ASC;

@@ -43,7 +43,19 @@ func (cfg *apiConfig) getChirp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
-	chirpsData, err := cfg.db.GetChirps(r.Context())
+	authorIdQuery := r.URL.Query().Get("author_id")
+	var chirpsData []database.Chirp
+	var err error
+	if authorIdQuery !="" {
+		authorId, err := uuid.Parse(authorIdQuery)
+		if err != nil {
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+		chirpsData, err = cfg.db.GetChirpsByAuthor(r.Context(), authorId)
+	} else {
+		chirpsData, err = cfg.db.GetChirps(r.Context())
+	}
 	if err != nil {
 		log.Println("Error: %v", err)
 		respondWithError(w, 500, "Something went wrong")
