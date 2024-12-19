@@ -1,21 +1,22 @@
 package main
+
 import (
-	"net/http"
-	"github.com/madhu1992blue/go-servers-demo/internal/database"
-	"github.com/madhu1992blue/go-servers-demo/internal/auth"
-	"github.com/google/uuid"
 	"encoding/json"
-	"strings"
+	"github.com/google/uuid"
+	"github.com/madhu1992blue/go-servers-demo/internal/auth"
+	"github.com/madhu1992blue/go-servers-demo/internal/database"
 	"log"
+	"net/http"
+	"strings"
 	"time"
 )
 
 type Chirp struct {
-	Body string `json:"body"`
+	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-	ID uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
 func (cfg *apiConfig) getChirp(w http.ResponseWriter, r *http.Request) {
@@ -25,24 +26,24 @@ func (cfg *apiConfig) getChirp(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 500, "Something went wrong")
 		return
 	}
-	chirpData, err := cfg.db.GetChirp(r.Context(), chirpID);
+	chirpData, err := cfg.db.GetChirp(r.Context(), chirpID)
 	if err != nil {
 		log.Println("Error: %v", err)
 		respondWithError(w, 500, "Something went wrong")
 		return
 	}
-	chirp := Chirp {
-		Body: chirpData.Body,
+	chirp := Chirp{
+		Body:      chirpData.Body,
 		CreatedAt: chirpData.CreatedAt,
 		UpdatedAt: chirpData.UpdatedAt,
-		ID: chirpData.ID,
-		UserID: chirpData.UserID,
+		ID:        chirpData.ID,
+		UserID:    chirpData.UserID,
 	}
 	respondWithJSON(w, 200, chirp)
 }
 
 func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
-	chirpsData, err := cfg.db.GetChirps(r.Context());
+	chirpsData, err := cfg.db.GetChirps(r.Context())
 	if err != nil {
 		log.Println("Error: %v", err)
 		respondWithError(w, 500, "Something went wrong")
@@ -66,10 +67,11 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 401, "Unauthorized")
 		return
 	}
-	userID, err := auth.ValidateJWT(tokenString, cfg.jwtSecret) 
-	if err!=nil {
+	userID, err := auth.ValidateJWT(tokenString, cfg.jwtSecret)
+	if err != nil {
 		log.Printf("Error : %v", err)
 		respondWithError(w, 401, "Unauthorized")
+		return
 	}
 	type parameters struct {
 		Body string `json:"body"`
@@ -98,7 +100,7 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 	}
 	cleanedBody := strings.Join(chirpParts, " ")
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
-		Body: cleanedBody,
+		Body:   cleanedBody,
 		UserID: userID,
 	})
 	if err != nil {
@@ -107,10 +109,10 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondWithJSON(w, 201, Chirp{
-		ID: chirp.ID,
-		Body: chirp.Body,
+		ID:        chirp.ID,
+		Body:      chirp.Body,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
-		UserID: chirp.UserID,
+		UserID:    chirp.UserID,
 	})
 }

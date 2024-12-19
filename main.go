@@ -1,26 +1,27 @@
 package main
 
 import (
-	"net/http"
-	"fmt"
-	"encoding/json"
-	"sync/atomic"
-	"strings"
-	"os"
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/madhu1992blue/go-servers-demo/internal/database"
+	"net/http"
+	"os"
+	"strings"
+	"sync/atomic"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	db *database.Queries
-	platform string
-	jwtSecret string
+	db             *database.Queries
+	platform       string
+	jwtSecret      string
 }
 
 var profaneWords []string = []string{"kerfuffle", "sharbert", "fornax"}
+
 func validateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
@@ -57,7 +58,7 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.fileserverHits.Add(1)
 		w.Header().Add("Cache-Control", "no-cache")
-		next.ServeHTTP(w,r)
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -70,7 +71,7 @@ func (cfg *apiConfig) metrics(w http.ResponseWriter, r *http.Request) {
     <p>Chirpy has been visited %d times!</p>
   </body>
 </html>`
-	w.Write([]byte(fmt.Sprintf(messageFormat,cfg.fileserverHits.Load())))
+	w.Write([]byte(fmt.Sprintf(messageFormat, cfg.fileserverHits.Load())))
 }
 
 func (cfg *apiConfig) reset(w http.ResponseWriter, r *http.Request) {
@@ -100,8 +101,8 @@ func main() {
 	mux := &http.ServeMux{}
 	dbQueries := database.New(db)
 	cfg := &apiConfig{
-		db: dbQueries,
-		platform: platform,
+		db:        dbQueries,
+		platform:  platform,
 		jwtSecret: jwtSecret,
 	}
 	fileServerHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(".")))
@@ -109,6 +110,8 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("POST /api/validate_chirp", validateChirp)
 	mux.HandleFunc("POST /api/login", cfg.login)
+	mux.HandleFunc("POST /api/refresh", cfg.RefreshAccessToken)
+	mux.HandleFunc("POST /api/revoke", cfg.RevokeRefreshToken)
 	mux.HandleFunc("POST /api/users", cfg.createUser)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.getChirp)
 	mux.HandleFunc("GET /api/chirps", cfg.getChirps)
@@ -117,7 +120,7 @@ func main() {
 	mux.HandleFunc("POST /admin/reset", cfg.reset)
 	server := http.Server{
 		Handler: mux,
-		Addr: ":8080",
+		Addr:    ":8080",
 	}
 	err = server.ListenAndServe()
 	if err != nil {
